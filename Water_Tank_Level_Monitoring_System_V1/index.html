@@ -1,0 +1,96 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Water Tank Monitoring</title>
+  <style>
+    body {
+      font-family: Arial, sans-serif;
+      text-align: center;
+    }
+    h1 {
+      margin-bottom: 30px;
+    }
+    #water-level {
+      font-size: 24px;
+      font-weight: bold;
+    }
+    .input-group {
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      margin-top: 20px;
+    }
+    .input-group label {
+      margin-right: 10px;
+    }
+    .input-group input {
+      width: 60px;
+    }
+    #update-btn {
+      margin-top: 20px;
+      padding: 10px 20px;
+      font-size: 16px;
+      cursor: pointer;
+    }
+  </style>
+</head>
+<body>
+  <h1>Water Tank Monitoring</h1>
+  <div id="water-level">Loading...</div>
+  <div class="input-group">
+    <label for="depth-input">Total Depth:</label>
+    <input type="number" id="depth-input" step="1" value="100">
+    <label for="volume-input">Volume:</label>
+    <input type="number" id="volume-input" step="1" value="0">
+    <button id="update-btn">Update</button>
+  </div>
+
+  <script>
+    const waterLevelDisplay = document.getElementById("water-level");
+    const depthInput = document.getElementById("depth-input");
+    const volumeInput = document.getElementById("volume-input");
+    const updateBtn = document.getElementById("update-btn");
+
+    // Function to update the water level display
+    function updateWaterLevel() {
+      fetch("/")
+        .then(response => response.json())
+        .then(data => {
+          waterLevelDisplay.innerText = "Water Level: " + data.water_level + " cm";
+        })
+        .catch(error => {
+          console.error("Error fetching water level data:", error);
+          waterLevelDisplay.innerText = "Error fetching data";
+        });
+    }
+
+    // Function to update the tank settings on the server
+    function updateSettings() {
+      const depth = depthInput.value;
+      const volume = volumeInput.value;
+
+      fetch("/settings", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/x-www-form-urlencoded",
+        },
+        body: `depth=${depth}&volume=${volume}`,
+      })
+        .then(response => response.text())
+        .then(data => {
+          console.log("Settings updated:", data);
+          updateWaterLevel();
+        })
+        .catch(error => {
+          console.error("Error updating settings:", error);
+        });
+    }
+
+    // Update the water level display initially
+    updateWaterLevel();
+
+    // Add click event listener to the update button
+    updateBtn.addEventListener("click", updateSettings);
+  </script>
+</body>
+</html>
