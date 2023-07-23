@@ -1,7 +1,18 @@
+#include <Arduino.h>
 #include <WiFi.h>
-#include <WiFiClient.h>
-#include <WebServer.h>
+#include <AsyncTCP.h>
+#include <ESPAsyncWebServer.h>
+#include <SPIFFS.h> 
+#include <AsyncWebSocket.h>
+#include <AsyncJson.h>
+#include <ArduinoJson.h>
 
+
+AsyncWebSocket ws("/ws"); // Create a WebSocket instance, you can change the URL path if needed.
+
+void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
+  // Not used for this example, but you can add custom WebSocket event handling here if needed.
+}
 int trigger_pin = 5;
 int echo_pin   = 18;
 
@@ -15,7 +26,8 @@ int echo_pin   = 18;
 const char* ssid = "IMTIAZ";
 const char* password = "Imtiaz832921az";
 
-WebServer server(80);
+AsyncWebServer server(80);
+
 
 String page = "";
 float distance_cm;
@@ -47,8 +59,17 @@ float calculateTankVolume(float totalDepth, float tankLength, float tankWidth) {
 // Function to calculate the remaining liters in the tank based on water depth
 float calculateRemainingLiters(float distance_cm, float totalDepth, float tankVolume) {
     // Convert the distance from cm to meters
+    if (distance_cm <= 20) {
+        distance_cm = 0;
+    }
+    else if (distance_cm > totalDepth * 100) {
+        distance_cm = totalDepth * 100;
+    }
     float depth_m = distance_cm / 100.0;
-
+  
+   if (depth_m > totalDepth) {
+        depth_m = totalDepth;
+    }
     // Calculate the remaining volume in the tank in cubic meters
     float remainingVolume_m3 = tankVolume * (1 - (depth_m / totalDepth));
 
@@ -76,17 +97,31 @@ void setup() {
   Serial.println(WiFi.localIP());
   tankVolume = calculateTankVolume(totalDepth, tankLength, tankWidth);
   tankLiters = tankVolume * 1000;
-  server.on("/", []() {
-    //page = "<head><meta http-equiv=\"refresh\" content=\"3\"></head><center><h1>Ultasonic Water Level Monitor</h1><h3>Current water level:</h3> <h4>" + String(distance_cm) + "</h4></center>";
-   // page = "<head><meta http-equiv=\"refresh\" content=\"3\"></head><center><h1>Ultrasonic Water Level Monitor</h1><div style=\"width: 40px; height: 300px; background-color: #f0f0f0; border: 1px solid #999; position: relative;\"><div style=\"width: 100%; background-color: #007bff; position: absolute; bottom: 0; height: " + String((distance_cm / totalDepth) * 100) + "%;\"></div></div><div style=\"display: flex; justify-content: space-between; margin-top: 10px; font-size: 12px; font-weight: bold;\"><span>0 cm</span><span>" + String(totalDepth / 2) + " cm</span><span>" + String(totalDepth) + " cm</span></div><center><h3>Current water level:</h3><h4>" + String(distance_cm) + " cm</h4><h3>Amount of water in the tank:</h3><h4>" + String(((distance_cm / totalDepth) * tankVolume), 2) + " liters</h4></center></center>";
-page = "<head><meta http-equiv=\"refresh\" content=\"3\"><link href=\"https://fonts.googleapis.com/css2?family=Inter:wght@300;400;500;600;700&display=swap\" rel=\"stylesheet\"><style>body{font-family:'Inter', Arial, sans-serif;background-color:#f8f9fa;margin:0;}.container{max-width:600px;margin:0 auto;padding:20px;}.water-tank{width:100px;height:250px;background-color:#f0f0f0;border:1px solid #999;position:relative;margin:20px auto;}.water-level{width:100%;background-color:#007bff;position:absolute;bottom:0;}.water-level-labels{display:flex;justify-content:space-between;margin-top:10px;font-size:12px;font-weight:bold;}</style></head><body><div class=\"container\"><div class=\"text-center\"><h1 class=\"mb-3\", text-align=\"center\">Water Tank Level Monitor</h1></div><div class=\"water-tank\"><div class=\"water-level\" style=\"height: " + String(100 - ((distance_cm / totalDepth) * 100)) + "%;\"></div></div><div class=\"water-level-labels\"><span>" + String(totalDepth / 2) + " cm</span></div><div class=\"text-center mt-3\"><h3>Current Water level:</h3><h4>" + String(distance_cm) + " cm</h4><h3>Water in Tank (Liters):</h3><h4>" + remainingWater + " /" + tankLiters + "/ liters</h4></div></div></body>";
-
-    server.send(200, "text/html", page);
+  
+  // Initialize SPIFFS
+    // Initialize SPIFFS
+  if (!SPIFFS.begin()) {
+    Serial.println("Error mounting SPIFFS");
+    return;
+  }
+    // Route for root / page
+  server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+    request->send(SPIFFS, "/index.html", "text/html"); // Specify the content type
   });
+    // Add a new route to handle the reset request
+  server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request) {
+    // Perform the reset here
+    ESP.restart();
+  });
+
+  // Serve static files (CSS, JS, images, etc.)
+  server.serveStatic("/", SPIFFS, "/");
+
+  // Start the server
   server.begin();
+    ws.onEvent(onWebSocketEvent);
+  server.addHandler(&ws);
   Serial.println("Web server started!");
-
-
 }
 
 void loop() {
@@ -98,10 +133,14 @@ void loop() {
   long duration = pulseIn(echo_pin, HIGH);
   distance_cm = (duration * 0.034) / 2.0;
   Serial.println(distance_cm);
-  float remainingWater = calculateRemainingLiters(distance_cm, totalDepth, tankVolume);
+  int remainingWater = calculateRemainingLiters(distance_cm, totalDepth, tankVolume);
   Serial.println("Tank Volume: " + String(tankVolume) + " m3");
   Serial.println("Remaining Water: " + String(remainingWater) + " liters");
   Serial.println("Tank Liters: " + String(tankLiters) + " liters");
-  server.handleClient();
-  delay(3000);
+  String jsonStr;
+  StaticJsonDocument<200> jsonDoc;
+  jsonDoc["remainingWater"] = remainingWater;
+  serializeJson(jsonDoc, jsonStr);
+  ws.textAll(jsonStr); // Send the JSON data to all connected WebSocket clients.
+  delay(10000); // Wait for 10 seconds before sending data again.
 }
