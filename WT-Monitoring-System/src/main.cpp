@@ -79,6 +79,35 @@ float calculateRemainingLiters(float distance_cm, float totalDepth, float tankVo
     return remainingLiters;
 }
 
+void handleSettings(AsyncWebServerRequest *request) {
+  if (request->hasParam("totalDepth") && request->hasParam("tankLength") && request->hasParam("tankWidth")) {
+    String totalDepthStr = request->getParam("totalDepth")->value();
+    String tankLengthStr = request->getParam("tankLength")->value();
+    String tankWidthStr = request->getParam("tankWidth")->value();
+
+    // Parse the input strings to float values
+    float totalDepth = totalDepthStr.toFloat();
+    float tankLength = tankLengthStr.toFloat();
+    float tankWidth = tankWidthStr.toFloat();
+
+    // Save the parameters to SPIFFS
+    File configFile = SPIFFS.open("/config.json", "w");
+    if (configFile) {
+      DynamicJsonDocument jsonDoc(200);
+      jsonDoc["totalDepth"] = totalDepth;
+      jsonDoc["tankLength"] = tankLength;
+      jsonDoc["tankWidth"] = tankWidth;
+      serializeJson(jsonDoc, configFile);
+      configFile.close();
+
+      request->send(200, "text/plain", "Settings saved.");
+    } else {
+      request->send(500, "text/plain", "Failed to save settings.");
+    }
+  } else {
+    request->send(400, "text/plain", "Invalid request parameters.");
+  }
+}
 
 void setup() {
   Serial.begin(115200);
@@ -108,7 +137,19 @@ void setup() {
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
     request->send(SPIFFS, "/index.html", "text/html"); // Specify the content type
   });
+
+    // Route for settings page
+  server.on("/settings", HTTP_GET, [](AsyncWebServerRequest *request) {
+    request->send(SPIFFS, "/settings.html", "text/html");
+  });
+
+  // Route to handle settings form submission
+  server.on("/save-settings", HTTP_POST, handleSettings);
     // Add a new route to handle the reset request
+  
+  // Route to get saved settings
+  server.on("/get-settings", HTTP_GET, handleSettings);
+  
   server.on("/reset", HTTP_GET, [](AsyncWebServerRequest *request) {
     // Perform the reset here
     ESP.restart();

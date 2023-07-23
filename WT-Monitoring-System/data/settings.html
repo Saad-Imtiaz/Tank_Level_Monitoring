@@ -1,0 +1,160 @@
+<!-- settings.html -->
+<!DOCTYPE html>
+<html>
+<head>
+  <title>Settings Page</title>
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+  <style>
+    body {
+      background-color: #f0f0f0;
+      font-family: Arial, sans-serif;
+      margin: 0;
+      padding: 0;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+      height: 100vh;
+    }
+
+    .container {
+      background-color: #fff;
+      border-radius: 10px;
+      box-shadow: 0 4px 8px rgba(0, 0, 0, 0.1);
+      padding: 20px;
+      width: 350px;
+      text-align: center;
+    }
+
+    .input-group {
+      margin-bottom: 15px;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+
+    .input-group input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    .input-group input[type="submit"] {
+      background-color: #007bff;
+      color: #fff;
+      cursor: pointer;
+    }
+    .heading1 {
+        margin-top: 20px ;
+      margin-bottom: 20px;
+      font-size: 20px;
+        font-weight: bold;
+color: #ca250f;
+    }
+    .heading {
+        margin-top: 5px ;
+      margin-bottom: 20px;
+      font-size: 20px;
+        font-weight: bold;
+color: #007bff;
+    }
+    #backButton {
+      margin-top: 10px;
+    }
+    /* Card styles for displaying saved parameters */
+    .parameter-card {
+      margin-top: 2px;
+      padding: 10px;
+      background-color: #f8f9fa;
+      border-radius: 10px;
+    }
+
+    .saved {
+      margin-bottom: 5px;
+      font-size: 16px;
+      font-family: Arial, sans-serif;
+      color: #666666;
+    }
+
+    @media (min-width: 576px) {
+      /* Apply styles for screens larger than or equal to 576px (e.g., iPhones in landscape mode) */
+      .container {
+        max-width: 80%;
+      }
+    }
+  </style>
+</head>
+<body>
+
+  
+  <div class="container">
+    <div class="card-section">
+        <div class="parameter-card" id="parametersCard">
+          <h3 class="heading">Saved Parameters</h3>
+          <p class="saved">Total Depth (m): <span id="savedTotalDepth">N/A</span></p>
+          <p class="saved">Tank Length (m): <span id="savedTankLength">N/A</span></p>
+          <p class="saved">Tank Width (m): <span id="savedTankWidth">N/A</span></p>
+        </div>
+      </div>
+    <h1 class="heading1">Settings</h1>
+    <form id="settingsForm">
+      <div class="input-group">
+        <label for="totalDepth">Total Depth (m):</label>
+        <input type="number" step="0.01" id="totalDepth" name="totalDepth" required>
+      </div>
+
+      <div class="input-group">
+        <label for="tankLength">Tank Length (m):</label>
+        <input type="number" step="0.01" id="tankLength" name="tankLength" required>
+      </div>
+
+      <div class="input-group">
+        <label for="tankWidth">Tank Width (m):</label>
+        <input type="number" step="0.01" id="tankWidth" name="tankWidth" required>
+      </div>
+
+      <input type="submit" value="Save" class="btn btn-primary">
+    </form>
+
+    <button id="backButton" class="btn btn-secondary">Home</button>
+</div>
+<!-- Card section to display saved parameters -->
+
+  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+  <script>
+    $(document).ready(function () {
+      // Fetch and display saved parameters when the Settings Page is loaded
+      $.get('/get-settings', function (data) {
+        $('#savedTotalDepth').text(data.totalDepth + ' m');
+        $('#savedTankLength').text(data.tankLength + ' m');
+        $('#savedTankWidth').text(data.tankWidth + ' m');
+      });
+
+      $('#settingsForm').submit(function (e) {
+        e.preventDefault(); // Prevent the default form submission
+
+        // Get the form data
+        const formData = $(this).serialize();
+
+        // Send an HTTP POST request to save the settings
+        $.post('/save-settings', formData, function (data) {
+          console.log(data); // Log the response from the ESP32
+
+          // Update displayed saved parameters after saving
+          $('#savedTotalDepth').text(data.totalDepth + ' m');
+          $('#savedTankLength').text(data.tankLength + ' m');
+          $('#savedTankWidth').text(data.tankWidth + ' m');
+        });
+      });
+
+      // Back button click event to navigate to Index Page
+      $('#backButton').click(function () {
+        window.location.href = '/'; // Navigate to the Index Page
+      });
+    });
+  </script>
+</body>
+</html>
