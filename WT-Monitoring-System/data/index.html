@@ -41,10 +41,6 @@
       background-color: #007bff;
     }
 
-    .chart {
-      /* CSS for the chart container */
-    }
-
     p {
       margin: 5px;
     }
@@ -63,7 +59,20 @@
       font-weight: bold;
       color: #0768e6;
     }
+    .percent-tank {
+      border: 2px solid #0768e6;
+      border-radius: 5px;
+      width: 100px;
+      align-items: center;
+      margin: 0 auto;
+      padding: 3px;
+      font-size: 18px;
+      font-weight: bold;
+      background-color: #0768e6;
+      color: #ffffff;
+    }
     .total-tank {
+      margin-top: 20px;
       font-size: 16px;
       font-weight: bold;
       color: #747474;
@@ -74,8 +83,18 @@
       font-size: 12px;
       color: #747474;
       text-align: left;
+      
     }
-
+.btn-settings{
+    margin-left: 10px;
+    margin-top: 10px;
+    background-color: #747474;
+    color: #fff;
+    cursor: pointer;
+}
+.btn-danger{
+    font-size: 15px;
+}
     @media (min-width: 576px) {
       /* Apply styles for screens larger than or equal to 576px (e.g., iPhones in landscape mode) */
       .container {
@@ -91,10 +110,13 @@
       <div class="water-level" id="waterLevel"></div>
     </div>
     <div class="chart" id="chart"></div>
-    <p class="total-tank">Total Tank Capacity: 6000 L</p>
+    <!--Show the level of the tank in percentage-->
+    <p class="percent-tank"><snap id ="percentage"> </snap> %</p>
+    <p class="total-tank">Total Tank Capacity: 4269 L</p>
     <p class="current-tank">Current Tank Capacity: <span id="currentCapacity">0</span> L</p>
-    <p class="button-message"> If there are any unexpected values please tap the button below:</p>
-    <button id="resetButton" class="btn btn-danger">Reset</button>
+    <!--<button id="settingsButton" class="btn btn-settings">Settings</button>-->
+    <p class="button-message"> To restart the system, please tap the "Restart" button, after restarting kindly reload your browser page.</p>
+    <button id="resetButton" class="btn btn-danger">Restart</button>
   </div>
 
   <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
@@ -106,27 +128,37 @@
     const data = JSON.parse(event.data);
     // Update UI with the received data
     const remainingWater = data.remainingWater;
-    const totalTankCapacity = 6000; // Change this value to the total tank capacity in liters
+    const totalTankCapacity = 4269; // Change this value to the total tank capacity in liters
 
     $('#currentCapacity').text(remainingWater); // Update remaining water capacity in the UI
-
+// show the percentage of the tank 
+    const percentage = (remainingWater / totalTankCapacity) * 100;
+    $('#percentage').text(percentage.toFixed(2)); // Update remaining water capacity in the UI
     // Calculate water level in percentage based on remaining water and total capacity
     const waterLevelPercentage = (remainingWater / totalTankCapacity) * 100;
 
     // Calculate the height of the water level div based on the percentage
+    // Q: whay is the unit of tankHeight in this case?
+    // A: tankHeight is in pixels
     const tankHeight = 200; // Adjust this value based on your tank container height
     const waterHeight = (tankHeight * waterLevelPercentage) / 100;
 
     // Update the water level div with the calculated height
     $('#waterLevel').css('height', `${waterHeight}px`);
   };
-
+   // Back button click event to navigate to Index Page
+        $('#settingsButton').click(function () {
+        window.location.href = '/settings'; // Navigate to the Index Page
+      });
+      
     $('#resetButton').click(() => {
     // Send an HTTP GET request to the "/reset" endpoint to trigger the reset
     $.get('/reset', function (data) {
       console.log('ESP32 reset triggered.');
     });
   });
+
+     
     // Update water level and chart every 5 seconds
     setInterval(() => {
       updateWaterLevel();

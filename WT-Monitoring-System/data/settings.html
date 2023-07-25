@@ -123,15 +123,20 @@ color: #007bff;
 </div>
 <!-- Card section to display saved parameters -->
 
-  <script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
+<script src="https://code.jquery.com/jquery-3.6.0.min.js"></script>
   <script>
     $(document).ready(function () {
+      // Function to fetch and display saved parameters
+      function fetchSavedParameters() {
+        $.get('/get-settings', function (data) {
+          $('#savedTotalDepth').text(data.totalDepth + ' m');
+          $('#savedTankLength').text(data.tankLength + ' m');
+          $('#savedTankWidth').text(data.tankWidth + ' m');
+        });
+      }
+
       // Fetch and display saved parameters when the Settings Page is loaded
-      $.get('/get-settings', function (data) {
-        $('#savedTotalDepth').text(data.totalDepth + ' m');
-        $('#savedTankLength').text(data.tankLength + ' m');
-        $('#savedTankWidth').text(data.tankWidth + ' m');
-      });
+      fetchSavedParameters();
 
       $('#settingsForm').submit(function (e) {
         e.preventDefault(); // Prevent the default form submission
@@ -141,12 +146,9 @@ color: #007bff;
 
         // Send an HTTP POST request to save the settings
         $.post('/save-settings', formData, function (data) {
-          console.log(data); // Log the response from the ESP32
 
           // Update displayed saved parameters after saving
-          $('#savedTotalDepth').text(data.totalDepth + ' m');
-          $('#savedTankLength').text(data.tankLength + ' m');
-          $('#savedTankWidth').text(data.tankWidth + ' m');
+          fetchSavedParameters();
         });
       });
 

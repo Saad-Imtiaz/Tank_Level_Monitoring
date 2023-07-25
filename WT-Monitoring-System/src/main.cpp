@@ -16,9 +16,9 @@ void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsE
 int trigger_pin = 5;
 int echo_pin   = 18;
 
-    float totalDepth = 1.5; // Total depth of the tank in m
-    float tankLength = 2; // Length of the tank in m
-    float tankWidth = 2; // Width of the tank in m
+    float totalDepth = 0.711; // Total depth of the tank in m
+    float tankLength = 2.463; // Length of the tank in m
+    float tankWidth = 2.438; // Width of the tank in m
     float tankVolume = 0; // Volume of the tank in liters
     float remainingWater = 0; // Remaining liters in the tank
     float tankLiters = 0; // Total liters in the tank
@@ -80,32 +80,59 @@ float calculateRemainingLiters(float distance_cm, float totalDepth, float tankVo
 }
 
 void handleSettings(AsyncWebServerRequest *request) {
-  if (request->hasParam("totalDepth") && request->hasParam("tankLength") && request->hasParam("tankWidth")) {
+  if (request->method() == HTTP_POST) {
     String totalDepthStr = request->getParam("totalDepth")->value();
     String tankLengthStr = request->getParam("tankLength")->value();
     String tankWidthStr = request->getParam("tankWidth")->value();
 
-    // Parse the input strings to float values
-    float totalDepth = totalDepthStr.toFloat();
-    float tankLength = tankLengthStr.toFloat();
-    float tankWidth = tankWidthStr.toFloat();
+    totalDepth = totalDepthStr.toFloat();
+    tankLength = tankLengthStr.toFloat();
+    tankWidth = tankWidthStr.toFloat();
 
-    // Save the parameters to SPIFFS
-    File configFile = SPIFFS.open("/config.json", "w");
+    // Save the parameters to SPIFFS as .json file
+    DynamicJsonDocument jsonDoc(256); // Increase buffer size for JSON document
+    jsonDoc["totalDepth"] = totalDepth;
+    jsonDoc["tankLength"] = tankLength;
+    jsonDoc["tankWidth"] = tankWidth;
+
+    File configFile = SPIFFS.open("/config.json", FILE_WRITE);
+    if (!configFile) {
+Serial.println("Failed to open config file for writing");
+      return;
+    }
+
+    if (serializeJson(jsonDoc, configFile) == 0) {
+      configFile.close();
+       Serial.println("256, text/plain, Failed to write JSON data to config file.");
+      return;
+    }
+
+    configFile.close();
+   Serial.println("256,text/plain, Settings saved.");
+  }
+  
+   else if (request->method() == HTTP_GET) {
+    // Read the saved parameters from SPIFFS .json file
+    File configFile = SPIFFS.open("/config.json", "r");
     if (configFile) {
-      DynamicJsonDocument jsonDoc(200);
-      jsonDoc["totalDepth"] = totalDepth;
-      jsonDoc["tankLength"] = tankLength;
-      jsonDoc["tankWidth"] = tankWidth;
-      serializeJson(jsonDoc, configFile);
+      DynamicJsonDocument jsonDoc(256); // Increase buffer size for JSON document
+
+      DeserializationError error = deserializeJson(jsonDoc, configFile);
       configFile.close();
 
-      request->send(200, "text/plain", "Settings saved.");
+      if (error) {
+        request->send(500, "text/plain", "Error reading settings.");
+        return;
+      }
+
+      JsonObject jsonObject = jsonDoc.as<JsonObject>();
+      String response;
+      serializeJson(jsonObject, response);
+
+      request->send(200, "application/json", response);
     } else {
-      request->send(500, "text/plain", "Failed to save settings.");
+      request->send(404, "text/plain", "Settings not found.");
     }
-  } else {
-    request->send(400, "text/plain", "Invalid request parameters.");
   }
 }
 
@@ -160,19 +187,34 @@ void setup() {
 
   // Start the server
   server.begin();
-    ws.onEvent(onWebSocketEvent);
+  
+  ws.onEvent(onWebSocketEvent);
   server.addHandler(&ws);
   Serial.println("Web server started!");
 }
+float get_sensorData()
+{
+  // Getting the ultrasonic sensor data
+ // Taking the average of 10 readings of distance_cm 
+  float avg_distance_cm = 0;
+  for (int i = 0; i < 10; i++)
+  {
+    digitalWrite(trigger_pin, LOW);
+    delayMicroseconds(2);
+    digitalWrite(trigger_pin, HIGH);
+    delayMicroseconds(10);
+    digitalWrite(trigger_pin, LOW);
+    long duration = pulseIn(echo_pin, HIGH);
+    avg_distance_cm += (duration * 0.034) / 2.0;
+    delay(300);
+  }
+  avg_distance_cm = avg_distance_cm / 10.0;
+ return avg_distance_cm;
+}
 
 void loop() {
-  digitalWrite(trigger_pin, LOW);
-  delayMicroseconds(2);
-  digitalWrite(trigger_pin, HIGH);
-  delayMicroseconds(10);
-  digitalWrite(trigger_pin, LOW);
-  long duration = pulseIn(echo_pin, HIGH);
-  distance_cm = (duration * 0.034) / 2.0;
+  
+  distance_cm = get_sensorData();
   Serial.println(distance_cm);
   int remainingWater = calculateRemainingLiters(distance_cm, totalDepth, tankVolume);
   Serial.println("Tank Volume: " + String(tankVolume) + " m3");
@@ -183,5 +225,4 @@ void loop() {
   jsonDoc["remainingWater"] = remainingWater;
   serializeJson(jsonDoc, jsonStr);
   ws.textAll(jsonStr); // Send the JSON data to all connected WebSocket clients.
-  delay(10000); // Wait for 10 seconds before sending data again.
 }
