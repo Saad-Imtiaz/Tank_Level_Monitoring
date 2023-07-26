@@ -7,28 +7,131 @@
 #include <AsyncJson.h>
 #include <ArduinoJson.h>
 
-
+AsyncWebServer server(80);
 AsyncWebSocket ws("/ws"); // Create a WebSocket instance, you can change the URL path if needed.
 
-void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) { }
-int trigger_pin = 5;
-int echo_pin   = 18;
+// Search for parameter in HTTP POST request
+const char* PARAM_INPUT_1 = "ssid";
+const char* PARAM_INPUT_2 = "pass";
+const char* PARAM_INPUT_3 = "ip";
+const char* PARAM_INPUT_4 = "gateway";
 
-    float totalDepth = 0.711; // Total depth of the tank in m
-    float tankLength = 2.463; // Length of the tank in m
-    float tankWidth = 2.438; // Width of the tank in m
-    float tankVolume = 0; // Volume of the tank in liters
-    float remainingWater = 0; // Remaining liters in the tank
-    float tankLiters = 0; // Total liters in the tank
-// Replace with your network credentials
-const char* ssid = "IMTIAZ";
-const char* password = "Imtiaz832921az";
+//Variables to save values from HTML form
+String ssid;
+String pass;
+String ip;
+String gateway;
 
-AsyncWebServer server(80);
+// File paths to save input values permanently
+const char* ssidPath = "/ssid.txt";
+const char* passPath = "/pass.txt";
+const char* ipPath = "/ip.txt";
+const char* gatewayPath = "/gateway.txt";
+
+IPAddress localIP;
+//IPAddress localIP(192, 168, 1, 200); // hardcoded
+
+// Set your Gateway IP address
+IPAddress localGateway;
+//IPAddress localGateway(192, 168, 1, 1); //hardcoded
+IPAddress subnet(255, 255, 0, 0);
+
+// Timer variables
+unsigned long previousMillis = 0;
+const long interval = 10000;  // interval to wait for Wi-Fi connection (milliseconds)
 
 
-String page = "";
+// Sensor and Parameters Setup 
+const int trigger_pin = 5;
+const int echo_pin = 18;
+
+float totalDepth = 0.711; // Total depth of the tank in m
+float tankLength = 2.463; // Length of the tank in m
+float tankWidth = 2.438; // Width of the tank in m
+float tankVolume = 0; // Volume of the tank in liters
+float remainingWater = 0; // Remaining liters in the tank
+float tankLiters = 0; // Total liters in the tank
 float distance_cm;
+
+void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) { }
+
+// Initialize SPIFFS
+void initSPIFFS() {
+  if (!SPIFFS.begin(true)) {
+    Serial.println("An error has occurred while mounting SPIFFS");
+  }
+  Serial.println("SPIFFS mounted successfully");
+}
+
+// Read File from SPIFFS
+String readFile(fs::FS &fs, const char * path){
+  Serial.printf("Reading file: %s\r\n", path);
+
+  File file = fs.open(path);
+  if(!file || file.isDirectory()){
+    Serial.println("- failed to open file for reading");
+    return String();
+  }
+  
+  String fileContent;
+  while(file.available()){
+    fileContent = file.readStringUntil('\n');
+    break;     
+  }
+  return fileContent;
+}
+
+// Write file to SPIFFS
+void writeFile(fs::FS &fs, const char * path, const char * message){
+  Serial.printf("Writing file: %s\r\n", path);
+
+  File file = fs.open(path, FILE_WRITE);
+  if(!file){
+    Serial.println("- failed to open file for writing");
+    return;
+  }
+  if(file.print(message)){
+    Serial.println("- file written");
+  } else {
+    Serial.println("- write failed");
+  }
+}
+
+// Initialize WiFi
+bool initWiFi() {
+  if(ssid=="" || ip==""){
+    Serial.println("Undefined SSID or IP address.");
+    return false;
+  }
+
+  WiFi.mode(WIFI_STA);
+  localIP.fromString(ip.c_str());
+  localGateway.fromString(gateway.c_str());
+
+
+  if (!WiFi.config(localIP, localGateway, subnet)){
+    Serial.println("STA Failed to configure");
+    return false;
+  }
+  WiFi.begin(ssid.c_str(), pass.c_str());
+  Serial.println("Connecting to WiFi...");
+
+  unsigned long currentMillis = millis();
+  previousMillis = currentMillis;
+
+  while(WiFi.status() != WL_CONNECTED) {
+    currentMillis = millis();
+    if (currentMillis - previousMillis >= interval) {
+      Serial.println("Failed to connect.");
+      return false;
+    }
+  }
+
+  Serial.println(WiFi.localIP());
+  return true;
+}
+
+
 // Function to format a float number with a specific number of decimal places
 String formatFloat(float value, int decimalPlaces) {
   String str = String(value, decimalPlaces);
@@ -136,31 +239,32 @@ Serial.println("Failed to open config file for writing");
 
 void setup() {
   Serial.begin(115200);
+
   pinMode(trigger_pin, OUTPUT);
   pinMode(echo_pin, INPUT);
-  delay(1000);
+  
+  initSPIFFS();
 
-  WiFi.begin(ssid, password);
-  Serial.println("");
-  while (WiFi.status() != WL_CONNECTED) {
-    delay(500);
-    Serial.print(".");
-  }
+  // Load values saved in SPIFFS
+  ssid = readFile(SPIFFS, ssidPath);
+  pass = readFile(SPIFFS, passPath);
+  ip = readFile(SPIFFS, ipPath);
+  gateway = readFile (SPIFFS, gatewayPath);
+  Serial.println(ssid);
+  Serial.println(pass);
+  Serial.println(ip);
+  Serial.println(gateway);
+
   Serial.println("");
   Serial.print("IP address: ");
   Serial.println(WiFi.localIP());
   tankVolume = calculateTankVolume(totalDepth, tankLength, tankWidth);
   tankLiters = tankVolume * 1000;
   
-  // Initialize SPIFFS
-    // Initialize SPIFFS
-  if (!SPIFFS.begin()) {
-    Serial.println("Error mounting SPIFFS");
-    return;
-  }
+ if(initWiFi()) {
     // Route for root / page
   server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
-    request->send(SPIFFS, "/index.html", "text/html"); // Specify the content type
+    request->send(SPIFFS, "/index.html", "text/html", false); // Specify the content type
   });
 
     // Route for settings page
@@ -182,9 +286,71 @@ void setup() {
 
   // Serve static files (CSS, JS, images, etc.)
   server.serveStatic("/", SPIFFS, "/");
+ server.begin();
+  }
+  else {
+    // Connect to Wi-Fi network with SSID and password
+    Serial.println("Setting AP (Access Point)");
+    // NULL sets an open Access Point
+    WiFi.softAP("AdlerOne-AP", NULL);
 
-  // Start the server
-  server.begin();
+    IPAddress IP = WiFi.softAPIP();
+    Serial.print("AP IP address: ");
+    Serial.println(IP); 
+
+    // Web Server Root URL
+    server.on("/", HTTP_GET, [](AsyncWebServerRequest *request){
+      request->send(SPIFFS, "/wifimanager.html", "text/html");
+    });
+    
+    server.serveStatic("/", SPIFFS, "/");
+    
+    server.on("/", HTTP_POST, [](AsyncWebServerRequest *request) {
+      int params = request->params();
+      for(int i=0;i<params;i++){
+        AsyncWebParameter* p = request->getParam(i);
+        if(p->isPost()){
+          // HTTP POST ssid value
+          if (p->name() == PARAM_INPUT_1) {
+            ssid = p->value().c_str();
+            Serial.print("SSID set to: ");
+            Serial.println(ssid);
+            // Write file to save value
+            writeFile(SPIFFS, ssidPath, ssid.c_str());
+          }
+          // HTTP POST pass value
+          if (p->name() == PARAM_INPUT_2) {
+            pass = p->value().c_str();
+            Serial.print("Password set to: ");
+            Serial.println(pass);
+            // Write file to save value
+            writeFile(SPIFFS, passPath, pass.c_str());
+          }
+          // HTTP POST ip value
+          if (p->name() == PARAM_INPUT_3) {
+            ip = p->value().c_str();
+            Serial.print("IP Address set to: ");
+            Serial.println(ip);
+            // Write file to save value
+            writeFile(SPIFFS, ipPath, ip.c_str());
+          }
+          // HTTP POST gateway value
+          if (p->name() == PARAM_INPUT_4) {
+            gateway = p->value().c_str();
+            Serial.print("Gateway set to: ");
+            Serial.println(gateway);
+            // Write file to save value
+            writeFile(SPIFFS, gatewayPath, gateway.c_str());
+          }
+          //Serial.printf("POST[%s]: %s\n", p->name().c_str(), p->value().c_str());
+        }
+      }
+      request->send(200, "text/plain", "Done. ESP will restart, connect to your router and go to IP address: " + ip);
+      delay(3000);
+      ESP.restart();
+    });
+    server.begin();
+  }
   
   ws.onEvent(onWebSocketEvent);
   server.addHandler(&ws);
