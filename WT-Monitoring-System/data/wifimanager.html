@@ -1,0 +1,139 @@
+<!DOCTYPE html>
+<html>
+<head>
+  <title>AlderOne</title>
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <link rel="stylesheet" href="https://maxcdn.bootstrapcdn.com/bootstrap/4.5.2/css/bootstrap.min.css">
+
+  <link rel="icon" href="data:,">
+  <style>
+html {
+  font-family: Arial, sans-serif;
+  display: inline-block; 
+  text-align: left;
+  margin: 0;
+      padding: 20px ;
+      display: flex;
+      justify-content: center;
+      align-items: center;
+}
+
+h1 {
+  font-size: 24px; 
+  color: white;
+  text-align: center;
+}
+
+h2 {
+  font-size: 16px; 
+  color: white;
+  text-align: center;
+}
+
+.topnav { 
+  overflow: hidden; 
+  background-color: #a00000;
+  border-radius: 10px;
+  padding: 10px;
+}
+
+body {  
+  margin: 0;
+}
+
+.content { 
+  margin-top: 20px;
+  display: flex;
+  text-align: center;
+}
+
+.card-grid { 
+  max-width: 800px; 
+  margin: 0 auto; 
+  display: grid; 
+  grid-gap: 2rem; 
+  grid-template-columns: repeat(auto-fit, minmax(300px, 1fr));
+}
+
+.card { 
+  background-color: white; 
+  box-shadow: 2px 2px 12px 1px rgba(140,140,140,.5);
+  padding: 25px;
+  border-radius: 10px;
+}
+
+.card-title { 
+  font-size: 1.2rem;
+  font-weight: bold;
+  color: #034078
+}
+
+.input-group {
+      margin-bottom: 15px;
+    }
+
+    .info {
+      margin-bottom: 15px;
+      font-size: 16px;
+      color: #616263;
+    }
+
+    .input-group label {
+      display: block;
+      margin-bottom: 5px;
+      font-weight: bold;
+    }
+    .input-group input {
+      width: 100%;
+      padding: 8px;
+      border: 1px solid #ccc;
+      border-radius: 5px;
+    }
+
+    .input-group input[type="submit"] {
+      background-color: #007bff;
+      color: #fff;
+      cursor: pointer;
+    }
+
+
+
+  </style>
+</head>
+<body>
+  <div class="topnav">
+    <h1>AdlerOne</h1>
+    <h2>Water Tank Monitoring System</h2>
+  </div>
+
+  <div class="content">
+    <div class="card-grid">
+      <div class="card">
+        <div class="info">
+          Please set up your WiFi connection and IP address.
+        </div>
+        <form action="/" method="POST" id="settingsForm">
+
+          <div class="input-group">
+            <label for="ssid">SSID</label>
+            <input type="text" id ="ssid" name="ssid"><br>
+          </div>
+          <div class="input-group">
+            <label for="pass">Password</label>
+            <input type="text" id ="pass" name="pass"><br>
+          </div>
+          <div class="input-group">
+            <label for="ip">IP Address</label>
+            <input type="text" id ="ip" name="ip" value="192.168.1.200"><br>
+          </div>
+          <div class="input-group">
+            <label for="gateway">Gateway Address</label>
+            <input type="text" id ="gateway" name="gateway" value="192.168.1.1"><br>
+          </div>  
+            <input type ="submit"  class="btn btn-primary" value ="Submit">
+        </form>
+      </div>
+    </div>
+  </div>
+</body>
+</html>

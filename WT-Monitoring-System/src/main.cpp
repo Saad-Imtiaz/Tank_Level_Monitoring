@@ -10,9 +10,7 @@
 
 AsyncWebSocket ws("/ws"); // Create a WebSocket instance, you can change the URL path if needed.
 
-void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) {
-  // Not used for this example, but you can add custom WebSocket event handling here if needed.
-}
+void onWebSocketEvent(AsyncWebSocket *server, AsyncWebSocketClient *client, AwsEventType type, void *arg, uint8_t *data, size_t len) { }
 int trigger_pin = 5;
 int echo_pin   = 18;
 
