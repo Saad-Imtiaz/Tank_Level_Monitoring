@@ -6,13 +6,31 @@
 #include <AsyncWebSocket.h>
 #include <AsyncJson.h>
 #include <ArduinoJson.h>
-
+#include <Firebase_ESP_Client.h>
+#include <ESPmDNS.h>
+#include <WiFiUdp.h>
+#include "addons/TokenHelper.h"
 #include "tasks/sensors.h"
 #include "tasks/wifi.h"
-
+#include "tasks/firebaseOTA.h"
 
 AsyncWebServer server(80);
 AsyncWebSocket ws("/ws"); // Create a WebSocket instance, you can change the URL path if needed.
+
+// Define Firebase Data object
+FirebaseData fbdo;
+
+FirebaseAuth auth;
+FirebaseConfig config;
+
+bool signupOK = false;
+short int connected = 0;
+unsigned long dataMillis = 0;
+unsigned long dataMillis2 = 0;
+bool taskCompleted = false;
+bool taskcomplete = false;
+String ESPID = "";
+unsigned int status;
 
 // Search for parameter in HTTP POST request
 const char* PARAM_INPUT_1 = "ssid";
@@ -66,10 +84,26 @@ void setup() {
   Serial.begin(115200);
   #endif
 
+  #if UPLOAD_LED == true
+  pinMode(BUILTIN_LED, OUTPUT);
+  digitalWrite(BUILTIN_LED, LOW);
+  #endif
+
   setupSensors();
   initSPIFFS();
   readWiFiSettings();
-  
+
+    config.api_key = API_KEY;
+  /* Assign the user sign in credentials */
+  auth.user.email = USER_EMAIL;
+  auth.user.password = USER_PASSWORD;
+
+  /* Assign the callback function for the long running token generation task */
+  config.token_status_callback = tokenStatusCallback; // see addons/TokenHelper.h
+  config.fcs.download_buffer_size = 2048;
+  Firebase.begin(&config, &auth);
+
+  Firebase.reconnectWiFi(true);
   #if DEBUG == true
   Serial.println("");
   Serial.print("IP address: ");
@@ -79,16 +113,21 @@ void setup() {
   #endif
 
   runWiFi();
- 
+   ESPID = String(WiFi.macAddress());
+  
   // Route for root / web page  
   ws.onEvent(onWebSocketEvent);
   server.addHandler(&ws);
   Serial.println("Web server started!");
 
 
+
 }
 
 void loop() {
+
   RESET_TIMER();
   updateWaterLevel();
+  firebaseOTA();
+  //sendFirebaseDatabase();
 }
